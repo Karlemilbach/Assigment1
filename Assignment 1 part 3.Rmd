@@ -20,8 +20,9 @@ N.B. There are several datasets for this exercise, so pay attention to which one
 Working directory and packages:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("~/Desktop/Experimental methods 3/data")
-library(stringr);library(tidyverse);library(plyr);library(dplyr);library(lme4);library(modelr);library(caret)
+setwd("~/Desktop/Experimental methods 3/Assignment 1/")
+
+library(stringr);library(tidyverse);library(plyr);library(dplyr);library(lme4);library(modelr);library(caret); library(lmerTest);library(Metrics)
 
 Assignment1data = read.csv("Assignment1data")
 demo_test = read.csv("demo_test.csv")
@@ -92,7 +93,7 @@ final$Diagnosis=revalue(final$Diagnosis,c("A"="ASD","B"="TD"))
 write.csv(final,file="Clean_testdata")
 
 data.train = Assignment1data
-data.test = final
+data.test = read.csv("Clean_testdata")
 
 ```
 
@@ -115,6 +116,7 @@ rmse(model.train,data.train)
 #root mean square error on test data
 rmse(model.train,data.test) 
 
+?rmse
 ```
 
 Root mean square error on train data is 0.31
@@ -137,19 +139,30 @@ In this exercise you have to use cross-validation to calculate the predictive er
 - Bonus Question 3: compare the cross-validated predictive error against the actual predictive error on the test data
 
 ```{r setup, include=FALSE}
+data.train=na.omit(data.train)
+data.test=na.omit(data.test)
 
-PTOT=NULL
-for (i in 1:352)
+folds = createFolds(unique(data.train$ID),k=5)
+n=1
+error.train=NULL
+error.test=NULL
+for (i in folds)
   {
-  DataC1=data.train[data.train==i,]
-  DataCV=data.train[data.train!=i,]
-  M1 = lmer(CHI_MLU ~ VISIT * Diagnosis + (1+VISIT|ID), data=DataCV)
-  P1 = predict(M1,DataC1, allow.new.levels=T)
-  names(P1)=NULL
-  P1
-  PTOT = c(PTOT,P1)
-}
+  testD=data.train[data.train$ID %in% i,]
+  trainD=data.train[!(data.train$ID %in% i),]
+  Mtrain = lmer(CHI_MLU ~ VISIT * Diagnosis + (1+VISIT|ID), data=trainD)
+  pred = predict(Mtrain,testD, allow.new.levels=TRUE)
+  error.train[n]=modelr::rmse(Mtrain,trainD)
+  error.test[n]=Metrics::rmse(testD$CHI_MLU,pred)
+  
+  #error.trains = c(error.trains,error.train[n])
+  #error.tests = c(error.tests, error.test[n])
 
+  n=n+1
+  
+}
+error.train
+error.test
 
 ```
 
@@ -159,13 +172,106 @@ for (i in 1:352)
 Let's get to business. This new kiddo - Bernie - has entered your clinic. This child has to be assessed according to his group's average and his expected development.
 
 Bernie is one of the six kids in the test dataset, so make sure to extract that child alone for the following analysis.
+```{r}
+#merge the relevant columnsback to the original dataframe
+final_withnames <- select(final2,1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20)
+
+colnames(final_withnames)[2]="ADOS"
+colnames(final_withnames)[3]="nonVerbalIQ"
+colnames(final_withnames)[4]="VerbalIQ"
+
+final_withnames$VISIT=as.numeric(final_withnames$VISIT)
+
+#Replace 1 with M and 2 with F
+final_withnames$Gender <- as.factor(final_withnames$Gender)
+final_withnames$Gender=revalue(final_withnames$Gender,c("1"="M","2"="F"))
+
+#Replace 1 with ASD and 2 with TD
+final_withnames$Diagnosis=as.factor(final_withnames$Diagnosis)
+final_withnames$Diagnosis=revalue(final_withnames$Diagnosis,c("A"="ASD","B"="TD"))
+
+
+#now we are ready to extract bernie
+bernie=final_withnames[final_withnames$ID=="Bernie",]
+
+```
 
 You want to evaluate:
 
 - how does the child fare in ChildMLU compared to the average TD child at each visit? Define the distance in terms of absolute difference between this Child and the average TD.
 (Tip: recreate the equation of the model: Y=Intercept+BetaX1+BetaX2, etc; input the average of the TD group  for each parameter in the model as X1, X2, etc.).
 
+```{r}
+#Calculate mean of types for TD during visits
+visit1=data.train[data.train$VISIT==1 & data.train$Diagnosis=="TD",]
+meanTypes_visit1 <- mean(visit1$types_CHI)
+
+visit2=data.train[data.train$VISIT==2 & data.train$Diagnosis=="TD",]
+meanTypes_visit2 <- mean(visit2$types_CHI)
+
+visit3=data.train[data.train$VISIT==3 & data.train$Diagnosis=="TD",]
+meanTypes_visit3 <- mean(visit3$types_CHI)
+
+visit4=data.train[data.train$VISIT==4 & data.train$Diagnosis=="TD",]
+meanTypes_visit4 <- mean(visit4$types_CHI)
+
+visit5=data.train[data.train$VISIT==5 & data.train$Diagnosis=="TD",]
+meanTypes_visit5 <- mean(visit5$types_CHI)
+
+visit6=data.train[data.train$VISIT==6 & data.train$Diagnosis=="TD",]
+meanTypes_visit6 <- mean(visit6$types_CHI)
+
+#Equation for each visit, TD kids, mean of types and interaction
+#Diagnosis TD is equal to 1
+MLUvisit1 = 0.9701074 + 1*0.0048298 + 1*-0.2007901 + meanTypes_visit1*0.0085584 + 1*1*0.1202236
+MLUvisit2 = 0.9701074 + 2*0.0048298 + 1*-0.2007901 + meanTypes_visit2*0.0085584 + 1*1*0.1202236
+MLUvisit3 = 0.9701074 + 3*0.0048298 + 1*-0.2007901 + meanTypes_visit3*0.0085584 + 1*1*0.1202236
+MLUvisit4 = 0.9701074 + 4*0.0048298 + 1*-0.2007901 + meanTypes_visit4*0.0085584 + 1*1*0.1202236
+MLUvisit5 = 0.9701074 + 5*0.0048298 + 1*-0.2007901 + meanTypes_visit5*0.0085584 + 1*1*0.1202236
+MLUvisit6 = 0.9701074 + 6*0.0048298 + 1*-0.2007901 + meanTypes_visit6*0.0085584 + 1*1*0.1202236
+
+#MLU per visit TD kids
+MLUvisit1
+MLUvisit2
+MLUvisit3 
+MLUvisit4
+MLUvisit5
+MLUvisit6
+
+#MLU per visit bernie
+Bernievisit1 = bernie$CHI_MLU[bernie$VISIT==1]
+Bernievisit2 =  bernie$CHI_MLU[bernie$VISIT==2]
+Bernievisit3 = bernie$CHI_MLU[bernie$VISIT==3]
+Bernievisit4 = bernie$CHI_MLU[bernie$VISIT==4]
+Bernievisit5 = bernie$CHI_MLU[bernie$VISIT==5]
+Bernievisit6 = bernie$CHI_MLU[bernie$VISIT==6]
+
+
+Bernievisit1
+Bernievisit2 
+Bernievisit3
+Bernievisit4 
+Bernievisit5 
+Bernievisit6
+
+#absolute difference:
+(Bernievisit1 +Bernievisit2 + Bernievisit3 + Bernievisit4 + Bernievisit5 + Bernievisit6) - (MLUvisit1 + MLUvisit2 + MLUvisit3 + MLUvisit4 + MLUvisit5 + MLUvisit6)
+
+
+```
+
 - how does the child fare compared to the model predictions at Visit 6? Is the child below or above expectations? (tip: use the predict() function on Bernie's data only and compare the prediction with the actual performance of the child)
+
+```{r}
+
+p <- predict(model.train,bernie, allow.new.levels=TRUE)
+p
+# actual performance - predicted performance
+Bernievisit6-p[6]
+
+
+```
+Bernie is above expectations
 
 [HERE GOES YOUR ANSWER]
 

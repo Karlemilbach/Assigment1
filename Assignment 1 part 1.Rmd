@@ -38,7 +38,7 @@ N.B. Create a GitHub repository for the Language Development in ASD set of assig
 Set the working directory (the directory with your data and code for these assignments):
 
 ```{r}
-setwd("~/Desktop/Experimental methods 3/data")
+setwd("~/Desktop/Experimental methods 3/Assignment 1/")
 library(stringr)
 library(tidyverse)
 library(dplyr)
@@ -195,7 +195,7 @@ Tip: Google "how to rename levels in R".
 ```{r}
 #Replace 1 with M and 2 with F
 final$Gender <- as.factor(final$Gender)
-final$Gender=revalue(final$Gender,c("1"="M","2"="F"))
+final$Gender=revalue(final$Gender,c("M"="1", "F"="2"))
 
 #Replace 1 with ASD and 2 with TD
 final$Diagnosis=as.factor(final$Diagnosis)
