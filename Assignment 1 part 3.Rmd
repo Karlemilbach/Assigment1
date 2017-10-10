@@ -54,9 +54,9 @@ colnames(demo_test)[24]="nonVerbalIQ"
 colnames(demo_test)[35]="VerbalIQ"
 
 #select columns of interest and save in new df
-demo_test2=select(demo_test,1,2,3,4,7,9,14,24,35)
-LU_test2=select(LU_test,1,2,3,4,8,9)
-token_test2=select(token_test,1,2,3,4,6,7)
+demo_test2=dplyr::select(demo_test,1,2,3,4,7,9,14,24,35)
+LU_test2=dplyr:select(LU_test,1,2,3,4,8,9)
+token_test2=dplyr::select(token_test,1,2,3,4,6,7)
 
 #merge the different dataframes
 mergesemifinal=merge(demo_test2,LU_test2)
@@ -66,11 +66,11 @@ final=merge(mergesemifinal,token_test2)
 visit1 = final[which(final$VISIT=="1"),]
 
 #select only relevant columns
-test=select(visit1,1,7,8,9)
+test=dplyr::select(visit1,1,7,8,9)
 
 #merge the relevant columnsback to the original dataframe
 final2=merge(test,final,by="ID")
-final <- select(final2,1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20)
+final <- dplyr::select(final2,1,2,3,4,5,6,7,8,9,13,14,15,16,17,18,19,20)
 
 
 colnames(final)[2]="ADOS"
@@ -92,7 +92,7 @@ final$Diagnosis=revalue(final$Diagnosis,c("A"="ASD","B"="TD"))
 
 write.csv(final,file="Clean_testdata")
 
-data.train = Assignment1data
+data.train = read.csv("Assignment1data")
 data.test = read.csv("Clean_testdata")
 
 ```
@@ -107,16 +107,15 @@ How did your models from last time perform? In this exercise you have to compare
 - test the performance of the models on the test data (Tips: time to reuse "predict()")
 - optional: predictions are never certain, can you identify the uncertainty of the predictions? (e.g. google predictinterval())
 
-```{r setup, include=FALSE}
+```{r}
 model.train = lmer(CHI_MLU ~ VISIT * Diagnosis + types_CHI + (1+VISIT|ID), data=data.train, REML = FALSE)
 
 #root mean square error on train data
-rmse(model.train,data.train) 
+modelr::rmse(model.train, data.train) 
 
 #root mean square error on test data
-rmse(model.train,data.test) 
+modelr::rmse(model.train, data.test) 
 
-?rmse
 ```
 
 Root mean square error on train data is 0.31
@@ -138,11 +137,14 @@ In this exercise you have to use cross-validation to calculate the predictive er
 - Bonus Question 2: What is the effect of changing the number of folds? Can you plot RMSE as a function of number of folds?
 - Bonus Question 3: compare the cross-validated predictive error against the actual predictive error on the test data
 
-```{r setup, include=FALSE}
+```{r}
 data.train=na.omit(data.train)
 data.test=na.omit(data.test)
 
 folds = createFolds(unique(data.train$ID),k=5)
+
+
+
 n=1
 error.train=NULL
 error.test=NULL
@@ -161,8 +163,11 @@ for (i in folds)
   n=n+1
   
 }
-error.train
-error.test
+mean(error.train)
+mean(error.test)
+
+
+
 
 ```
 
@@ -281,6 +286,38 @@ Another way to reduce the bad surprises when testing a model on new data is to p
 Re-create a selection of possible models explaining ChildMLU (the ones you tested for exercise 2, but now trained on the full dataset and not cross-validated).
 
 Then try to find the best possible predictive model of ChildMLU, that is, the one that produces the lowest information criterion.
+
+```{r}
+
+folds = createFolds(unique(data.train$ID),k=5)
+
+#adding types_CHI as a fixed effect
+n=1
+error.train1=NULL
+error.test1=NULL
+for (i in folds)
+  {
+  testD=data.train[data.train$ID %in% i,]
+  trainD=data.train[!(data.train$ID %in% i),]
+  Mtrain = lmer(CHI_MLU ~ VISIT * Diagnosis + types_CHI + (1+VISIT|ID), data=trainD)
+  pred = predict(Mtrain,testD, allow.new.levels=TRUE)
+  error.train1[n]=modelr::rmse(Mtrain,trainD)
+  error.test1[n]=Metrics::rmse(testD$CHI_MLU,pred)
+  
+  #error.trains = c(error.trains,error.train[n])
+  #error.tests = c(error.tests, error.test[n])
+
+  n=n+1
+  
+}
+
+mean(error.train)
+mean(error.test)
+mean(error.train1)
+mean(error.test1)
+
+```
+THe model with visit, diagnosis and types_CHI is a better predictive model
 
 - Bonus question for the optional exercise: are information criteria correlated with cross-validated RMSE? That is, if you take AIC for Model 1, Model 2 and Model 3, do they co-vary with their cross-validated RMSE?
 
